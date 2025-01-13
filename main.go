@@ -1,13 +1,14 @@
 package main
 
 import (
+	"fmt"
 	"jsonParser/lexer"
-	"jsonParser/parser"
 	"os"
 )
 
 func main() {
 	filePath := os.Args[1]
 	tokens := lexer.Lexer(filePath)
-	parser.Parser(tokens)
+	fmt.Printf("Tokens: %v\n", tokens)
+	// parser.Parser(tokens)
 }
