@@ -23,6 +23,9 @@ func Lexer(filePath string) (tokens []interface{}) {
 	for data.Scan() {
 		item := data.Text()
 		fmt.Printf("Scanned item: %s\n", item)
+		if strings.TrimSpace(item) == "" {
+			continue
+		}
 		if item == "{" || item == "}" || item == "[" || item == "]" || item == ":" || item == "," {
 			tokens = append(tokens, item)
 			continue
@@ -63,6 +66,29 @@ func AccNumber(scanner *bufio.Scanner, firstChar string) (interface{}, error) {
 	return ParseNumber(buffer.String())
 }
 
+// func AccKeyword(scanner *bufio.Scanner, firstChar string) (interface{}, error) {
+// 	var buffer strings.Builder
+// 	buffer.WriteString(firstChar)
+// 	for scanner.Scan() {
+// 		char := scanner.Text()
+// 		if char < "a" || char > "z" && char < "A" || char > "Z" {
+// 			break
+// 		}
+// 		buffer.WriteString(char)
+// 	}
+// 	word := buffer.String()
+// 	switch word {
+// 	case "true":
+// 		return true, nil
+// 	case "false":
+// 		return false, nil
+// 	case "null":
+// 		return nil, nil
+// 	default:
+// 		return nil, fmt.Errorf("invalid token: %q", word)
+// 	}
+// }
+
 func AccKeyword(scanner *bufio.Scanner, firstChar string) (interface{}, error) {
 	var buffer strings.Builder
 	buffer.WriteString(firstChar)
@@ -93,6 +119,7 @@ func AccWord(scanner *bufio.Scanner) (interface{}, error) {
 		if char == `"` {
 			return buffer.String(), nil
 		}
+
 		if char == "\\" {
 			if !scanner.Scan() {
 				return nil, fmt.Errorf("Unterminated escape sequence in JSON")
@@ -110,6 +137,21 @@ func AccWord(scanner *bufio.Scanner) (interface{}, error) {
 				buffer.WriteByte('\r')
 			} else if escapeChar == "t" {
 				buffer.WriteByte('\t')
+			} else if escapeChar == "u" {
+				if !scanner.Scan() {
+					return nil, fmt.Errorf("Unterminated Unicode escape sequence in JSON")
+				}
+				unicodeSeq := scanner.Text()
+				if len(unicodeSeq) != 4 {
+					return nil, fmt.Errorf("Invalid Unicode escape sequence: %q", unicodeSeq)
+				}
+				// Convert the Unicode sequence to a rune and then to a string
+				unicodeValue, err := strconv.ParseInt(unicodeSeq, 16, 32)
+				if err != nil {
+					return nil, fmt.Errorf("Invalid Unicode escape sequence: %q", unicodeSeq)
+				}
+				buffer.WriteRune(rune(unicodeValue))
+				continue
 			} else {
 				return nil, fmt.Errorf("Invalid escape character %q", escapeChar)
 			}
@@ -118,6 +160,13 @@ func AccWord(scanner *bufio.Scanner) (interface{}, error) {
 		buffer.WriteString(char)
 	}
 	return nil, fmt.Errorf("unterminated string")
+}
+
+func ParseNumber(s string) (interface{}, error) {
+	if strings.Contains(s, ".") || strings.ContainsAny(s, "eE") {
+		return strconv.ParseFloat(s, 64)
+	}
+	return strconv.Atoi(s)
 }
 
 // func AccWord(scanner *bufio.Scanner) (interface{}, error) {
@@ -184,10 +233,3 @@ func AccWord(scanner *bufio.Scanner) (interface{}, error) {
 // 	}
 // 	return nil, fmt.Errorf("invalid token: %q", word)
 // }
-
-func ParseNumber(s string) (interface{}, error) {
-	if strings.Contains(s, ".") || strings.ContainsAny(s, "eE") {
-		return strconv.ParseFloat(s, 64)
-	}
-	return strconv.Atoi(s)
-}
